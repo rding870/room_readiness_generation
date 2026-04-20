@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Room Readiness Studio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d14;
+      --bg2:       #13131e;
+      --bg3:       #1a1a28;
+      --border:    #252535;
+      --border2:   #32324a;
+      --text:      #d0d0e8;
+      --text-dim:  #60607a;
+      --text-mid:  #9090b8;
+      --accent:    #6366f1;
+      --accent2:   #8b5cf6;
+      --green:     #22c55e;
+      --green-bg:  #0f2a18;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+    }
+
+    html, body { height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── Top bar ── */
+    .topbar {
+      display: flex; align-items: center; gap: 0; flex-shrink: 0;
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      height: 46px;
+    }
+    .logo { padding: 0 20px; font-size: 14px; font-weight: 700; color: var(--text-mid); white-space: nowrap; border-right: 1px solid var(--border); height: 100%; display: flex; align-items: center; }
+
+    .mode-tabs { display: flex; height: 100%; }
+    .mode-tab {
+      display: flex; align-items: center; gap: 7px;
+      padding: 0 20px; font-size: 13px; font-weight: 600;
+      color: var(--text-dim); cursor: pointer; border-right: 1px solid var(--border);
+      transition: color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .mode-tab:hover { color: var(--text-mid); background: var(--bg3); }
+    .mode-tab.active { color: var(--accent); background: var(--bg3); box-shadow: inset 0 -2px 0 var(--accent); }
+    .mode-tab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); }
+    .mode-tab.active .dot { background: var(--accent); }
+
+    .progress-wrap { flex: 1; display: flex; align-items: center; padding: 0 20px; gap: 12px; }
+    .prog-track { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .prog-fill  { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; transition: width 0.4s; }
+    .prog-label { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+
+    /* ── Body layout ── */
+    .body { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 260px; flex-shrink: 0;
+      background: var(--bg2); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar-controls { padding: 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+    .sidebar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
+    select {
+      width: 100%; padding: 7px 10px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text); font-size: 13px; cursor: pointer;
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+
+    .slot-list { flex: 1; overflow-y: auto; padding: 6px; }
+    .slot-list::-webkit-scrollbar { width: 4px; }
+    .slot-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); padding: 10px 8px 4px; opacity: 0.6; }
+
+    .slot-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 6px; cursor: pointer;
+      font-size: 12px; color: var(--text-dim);
+      transition: background 0.12s, color 0.12s; user-select: none;
+    }
+    .slot-item:hover { background: var(--bg3); color: var(--text-mid); }
+    .slot-item.active { background: #1e1e38; color: #a0a0ff; }
+    .slot-check { width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+    .slot-check.done    { background: var(--green-bg); border-color: var(--green);  color: var(--green);  }
+    .slot-check.flagged { background: #2a1a00;          border-color: var(--amber);  color: var(--amber);  }
+    .slot-check.err     { background: #2a1010;          border-color: var(--red);    color: var(--red);    }
+    .slot-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Main area ── */
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+    .panels { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); overflow: hidden; }
+    .panel { background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
+    .panel-head {
+      padding: 9px 16px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-dim); background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-meta { font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-dim); }
+
+    .panel-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: hidden; }
+    .panel-body img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+
+    .empty { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-dim); font-size: 13px; opacity: 0.5; }
+    .empty svg { opacity: 0.6; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* prompt box in left panel (base mode) */
+    .prompt-box {
+      width: 100%; height: 100%; padding: 16px;
+      background: transparent; border: none;
+      color: var(--text); font-size: 13px; line-height: 1.6;
+      font-family: inherit; resize: none;
+    }
+    .prompt-box:focus { outline: none; }
+
+    /* ── Bottom controls ── */
+    .controls { background: var(--bg2); border-top: 1px solid var(--border); padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+    .feedback-row { display: flex; gap: 8px; align-items: flex-start; }
+    textarea.feedback {
+      flex: 1; padding: 7px 11px;
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 8px; color: var(--text); font-size: 13px;
+      font-family: inherit; resize: none; height: 36px; max-height: 60px;
+      transition: border-color 0.2s;
+    }
+    textarea.feedback::placeholder { color: var(--text-dim); }
+    textarea.feedback:focus { outline: none; border-color: var(--accent); }
+
+    .btn-row { display: flex; gap: 8px; }
+    button {
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      border: none; border-radius: 8px; cursor: pointer;
+      padding: 9px 18px; transition: opacity 0.15s, transform 0.1s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    button:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
+    button:not(:disabled):hover { transform: translateY(-1px); }
+    button:not(:disabled):active { transform: translateY(0); }
+
+    .btn-gen    { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; flex: 1; justify-content: center; }
+    .btn-accept { background: var(--green-bg); color: var(--green); border: 1px solid #1e5a30; flex: 1; justify-content: center; }
+    .btn-skip   { background: var(--bg3); color: var(--text-dim); border: 1px solid var(--border2); }
+    .btn-flag   { background: #2a1a00; color: var(--amber); border: 1px solid #5a3a00; flex: 1; justify-content: center; }
+
+    .statusbar { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-dim); min-height: 20px; }
+    .sdot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+    .sdot.ok     { background: var(--green); }
+    .sdot.busy   { background: var(--amber); animation: blink 0.9s infinite; }
+    .sdot.err    { background: var(--red); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    .errmsg { font-size: 12px; color: #f87171; padding: 7px 11px; background: #2a1010; border: 1px solid #5a2020; border-radius: 6px; }
+
+    .kbd { display: inline-block; font-size: 10px; padding: 1px 5px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="logo">Room Readiness</div>
+  <div class="mode-tabs">
+    <div class="mode-tab active" id="tabBase" onclick="switchMode('base')">
+      <div class="dot"></div> Base Images
+    </div>
+    <div class="mode-tab" id="tabVariant" onclick="switchMode('variant')">
+      <div class="dot"></div> Variants
+    </div>
+  </div>
+  <div class="progress-wrap">
+    <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="prog-label" id="progLabel">0 / 0</div>
+  </div>
+</div>
+
+<div class="body">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-controls" id="sidebarControls">
+      <!-- injected by JS -->
+    </div>
+    <div class="slot-list" id="slotList"></div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="panels">
+      <!-- Left panel -->
+      <div class="panel">
+        <div class="panel-head">
+          <span id="leftPanelTitle">Prompt</span>
+          <span class="panel-meta" id="leftPanelMeta"></span>
+        </div>
+        <div class="panel-body" id="leftPanel">
+          <div class="empty">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            <span>Select a slot from the sidebar</span>
+          </div>
+        </div>
+      </div>
+      <!-- Right panel -->
+      <div class="panel">
+        <div class="panel-head">
+          <span id="rightPanelTitle">Generated</span>
+          <span class="panel-meta" id="genMeta"></span>
+        </div>
+        <div class="panel-body" id="rightPanel">
+          <div class="empty">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/></svg>
+            <span>Generate to see result</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div id="errmsg" class="errmsg" style="display:none"></div>
+      <div id="controlsBody">
+        <!-- Dynamically rendered by renderControls() -->
+      </div>
+      <div class="statusbar">
+        <div class="sdot" id="sdot"></div>
+        <span id="statusText">Select a slot to begin</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-dim)" id="kbdHint">
+          <span class="kbd">Enter</span> generate &nbsp; <span class="kbd">A</span> accept &nbsp; <span class="kbd">S</span> skip
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Server data ───────────────────────────────────────────────────────────────
+const BASE_SLOTS      = {{ base_slots      | tojson }};
+const BASE_IMAGES     = {{ base_images     | tojson }};
+const SUBTASKS        = {{ subtasks        | tojson }};
+const VARIANT_DONE    = new Set({{ variant_done    | tojson }});
+const CLEAN_FOR_DIRTY = {{ clean_for_dirty | tojson }};
+
+// ── App state ─────────────────────────────────────────────────────────────────
+let mode      = 'base';   // 'base' | 'variant'
+let busy      = false;
+let generated = null;     // { b64, mime } — base mode only
+let accepted  = new Set();
+
+// Base mode
+let baseSlotIdx   = null;
+let basePromptVal = '';
+
+// Variant mode
+let varSubtask = SUBTASKS[0] || '';
+let varBaseId  = null;
+
+// Variant batch/review state
+let batchPhase      = 'idle'; // 'idle' | 'generating' | 'review'
+let batchEventSource = null;
+let batchProgress   = { done: 0, total: 0, errors: {} }; // errors: image_id→msg
+let reviewStates    = {};   // image_id → 'ok' | 'flagged' | 'error'
+let imageFeedbacks  = {};   // image_id → string
+let pendingRegen    = null; // { b64, mime } after regen, before save
+let regenBusy       = false;
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function setStatus(type, txt) {
+  document.getElementById('sdot').className = 'sdot' + (type ? ' ' + type : '');
+  document.getElementById('statusText').textContent = txt;
+}
+function showErr(msg) {
+  const el = document.getElementById('errmsg');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+function imgTag(b64, mime) {
+  return `<img src="data:${mime};base64,${b64}" alt="generated">`;
+}
+function emptyPanel(icon, txt) {
+  const icons = {
+    image: `<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+    gen:   `<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/></svg>`,
+    select:`<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+  };
+  return `<div class="empty">${icons[icon]||icons.select}<span>${txt}</span></div>`;
+}
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function tokenMeta(inp, out) {
+  const cost = ((inp * 0.075 + out * 0.30) / 1e6 + 0.039).toFixed(4);
+  return `${inp.toLocaleString()} in / ${out.toLocaleString()} out · ~$${cost}`;
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+function updateProgress() {
+  let total, done;
+  if (mode === 'base') {
+    total = BASE_SLOTS.length;
+    done  = accepted.size + BASE_SLOTS.filter((s, i) => !accepted.has(`base:${i}`) && s.exists).length;
+  } else if (batchPhase === 'generating') {
+    total = batchProgress.total || BASE_IMAGES.length;
+    done  = batchProgress.done;
+  } else if (batchPhase === 'review') {
+    total = BASE_IMAGES.length;
+    done  = Object.values(reviewStates).filter(s => s === 'ok').length;
+  } else {
+    total = BASE_IMAGES.length * SUBTASKS.length;
+    done  = BASE_IMAGES.flatMap(img => SUBTASKS.map(s => `${img.id}:${s}`))
+              .filter(k => VARIANT_DONE.has(k)).length;
+  }
+  const pct = total > 0 ? (done / total * 100) : 0;
+  document.getElementById('progFill').style.width  = pct + '%';
+  document.getElementById('progLabel').textContent = `${done} / ${total}`;
+}
+
+// ── Controls rendering ────────────────────────────────────────────────────────
+function renderControls() {
+  const body    = document.getElementById('controlsBody');
+  const kbdHint = document.getElementById('kbdHint');
+
+  if (mode === 'base') {
+    kbdHint.style.display = '';
+    body.innerHTML = `
+      <div class="feedback-row">
+        <textarea class="feedback" id="feedback" rows="2"
+          placeholder="Optional feedback for regeneration (e.g. 'make it brighter', 'add more chairs')…"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn-gen"    id="btnGen"    onclick="generate()" disabled>⚡ Generate</button>
+        <button class="btn-accept" id="btnAccept" onclick="accept()"   disabled>✓ Accept &amp; Next</button>
+        <button class="btn-skip"   id="btnSkip"   onclick="skip()"    disabled>›› Skip</button>
+      </div>`;
+    return;
+  }
+
+  // ── Variant mode controls ──────────────────────────────────────────────────
+  kbdHint.style.display = 'none';
+
+  if (batchPhase !== 'review' || !varBaseId) {
+    body.innerHTML = '';
+    return;
+  }
+
+  const state    = reviewStates[varBaseId] || 'ok';
+  const feedback = imageFeedbacks[varBaseId] || '';
+
+  if (pendingRegen) {
+    // Regen done — user must accept or try again
+    body.innerHTML = `
+      <div class="feedback-row">
+        <textarea class="feedback" id="feedback" rows="2"
+          placeholder="More feedback for another try…">${escHtml(feedback)}</textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn-accept" onclick="acceptRegen()" style="flex:1;justify-content:center">✓ Accept &amp; Save</button>
+        <button class="btn-gen"    onclick="regenerateVariant()" style="flex:1;justify-content:center">↻ Try Again</button>
+        <button class="btn-skip"   onclick="cancelRegen()">✕ Cancel</button>
+      </div>`;
+  } else if (state === 'flagged') {
+    body.innerHTML = `
+      <div class="feedback-row">
+        <textarea class="feedback" id="feedback" rows="2"
+          placeholder="Describe what needs to be fixed…"
+          oninput="imageFeedbacks[varBaseId]=this.value">${escHtml(feedback)}</textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn-gen"  onclick="regenerateVariant()" ${regenBusy?'disabled':''} style="flex:1;justify-content:center">⚡ Regenerate</button>
+        <button class="btn-skip" onclick="unflagVariant()">↩ Un-flag</button>
+      </div>`;
+  } else {
+    // state === 'ok' or 'error'
+    body.innerHTML = `
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn-flag" onclick="flagVariant()" style="flex:1;justify-content:center">⚑ Flag for Redo</button>
+      </div>`;
+  }
+
+  // Attach feedback save-on-input for flagged state
+  const fb = document.getElementById('feedback');
+  if (fb && state === 'flagged') {
+    fb.addEventListener('input', () => { imageFeedbacks[varBaseId] = fb.value; });
+  }
+}
+
+// ── Mode switching ────────────────────────────────────────────────────────────
+function switchMode(m) {
+  mode = m;
+  accepted    = new Set();
+  generated   = null;
+  baseSlotIdx = null;
+
+  // Cancel any batch stream
+  if (batchEventSource) { batchEventSource.close(); batchEventSource = null; }
+  varBaseId      = null;
+  batchPhase     = 'idle';
+  batchProgress  = { done: 0, total: 0, errors: {} };
+  reviewStates   = {};
+  imageFeedbacks = {};
+  pendingRegen   = null;
+  regenBusy      = false;
+
+  document.getElementById('tabBase').classList.toggle('active',    m === 'base');
+  document.getElementById('tabVariant').classList.toggle('active', m === 'variant');
+
+  renderSidebar();
+  resetPanels();
+  renderControls();
+  updateProgress();
+  showErr('');
+
+  // Auto-trigger batch generation when entering variant mode
+  if (m === 'variant' && BASE_IMAGES.length > 0) {
+    onSubtaskChange();
+  }
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const ctrl = document.getElementById('sidebarControls');
+  if (mode === 'base') {
+    ctrl.innerHTML = `<div class="sidebar-label">Room Type Filter</div>
+      <select id="roomFilter" onchange="renderSlots()">
+        <option value="all">All rooms</option>
+        <option value="meeting_room">Meeting Room</option>
+        <option value="open_space">Open Space</option>
+      </select>`;
+    renderSlots();
+  } else {
+    ctrl.innerHTML = `<div class="sidebar-label">Subtask</div>
+      <select id="subtaskSel" onchange="onSubtaskChange()">
+        ${SUBTASKS.map(s => `<option value="${s}"${s===varSubtask?' selected':''}>${s.replace(/_/g,' ')}</option>`).join('')}
+      </select>`;
+    renderVariantSlots();
+  }
+}
+
+function renderSlots() {
+  const filter = document.getElementById('roomFilter')?.value || 'all';
+  const list   = document.getElementById('slotList');
+  let html = '', lastRoom = '';
+  BASE_SLOTS.forEach((slot, i) => {
+    if (filter !== 'all' && slot.room_type !== filter) return;
+    if (slot.room_type !== lastRoom) {
+      lastRoom = slot.room_type;
+      html += `<div class="group-label">${slot.room_type.replace(/_/g,' ')}</div>`;
+    }
+    const done   = accepted.has(`base:${i}`) || slot.exists;
+    const active = baseSlotIdx === i;
+    html += `<div class="slot-item${active?' active':''}" onclick="selectBaseSlot(${i})">
+      <div class="slot-check${done?' done':''}"><b>${done?'✓':''}</b></div>
+      <div class="slot-name">${slot.filename}</div>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function renderVariantSlots() {
+  const list = document.getElementById('slotList');
+  let html = '', lastRoom = '';
+
+  if (batchPhase === 'idle') {
+    list.innerHTML = `<div class="group-label" style="padding:20px 8px;text-align:center;opacity:0.5">Select a subtask to begin.</div>`;
+    return;
+  }
+
+  BASE_IMAGES.forEach((img) => {
+    if (img.room_type !== lastRoom) {
+      lastRoom = img.room_type;
+      html += `<div class="group-label">${img.room_type.replace(/_/g,' ')}</div>`;
+    }
+
+    if (batchPhase === 'generating') {
+      const done   = VARIANT_DONE.has(`${img.id}:${varSubtask}`);
+      const hasErr = !!batchProgress.errors[img.id];
+      let cls = '', icon = '';
+      if (hasErr)  { cls = ' err';  icon = '✕'; }
+      else if (done) { cls = ' done'; icon = '✓'; }
+      html += `<div class="slot-item" style="pointer-events:none;opacity:${done||hasErr?1:0.4}">
+        <div class="slot-check${cls}"><b>${icon}</b></div>
+        <div class="slot-name">${img.filename}</div>
+      </div>`;
+    } else {
+      // review phase
+      const state  = reviewStates[img.id] || 'ok';
+      const active = varBaseId === img.id;
+      let cls = ' done', icon = '✓';
+      if (state === 'flagged') { cls = ' flagged'; icon = '⚑'; }
+      else if (state === 'error') { cls = ' err'; icon = '✕'; }
+      html += `<div class="slot-item${active?' active':''}" onclick="selectVariantBase('${img.id}')">
+        <div class="slot-check${cls}"><b>${icon}</b></div>
+        <div class="slot-name">${img.filename}</div>
+      </div>`;
+    }
+  });
+
+  list.innerHTML = html || `<div class="group-label" style="padding:20px 8px;text-align:center">No base images found.</div>`;
+}
+
+// ── Subtask change → triggers batch generation ─────────────────────────────
+function onSubtaskChange() {
+  varSubtask = document.getElementById('subtaskSel')?.value || varSubtask;
+
+  if (batchEventSource) { batchEventSource.close(); batchEventSource = null; }
+  varBaseId      = null;
+  batchPhase     = 'idle';
+  batchProgress  = { done: 0, total: 0, errors: {} };
+  reviewStates   = {};
+  imageFeedbacks = {};
+  pendingRegen   = null;
+  regenBusy      = false;
+
+  showErr('');
+  resetPanels();
+  renderControls();
+
+  if (BASE_IMAGES.length === 0) {
+    setStatus('err', 'No base images found. Generate some first.');
+    renderVariantSlots();
+    return;
+  }
+
+  // If all variants for this subtask already exist → skip straight to review
+  const allExist = BASE_IMAGES.every(img => VARIANT_DONE.has(`${img.id}:${varSubtask}`));
+  if (allExist) {
+    batchPhase = 'review';
+    BASE_IMAGES.forEach(img => { reviewStates[img.id] = 'ok'; });
+    renderVariantSlots();
+    updateProgress();
+    setStatus('ok', 'All generated. Click an image to review.');
+    document.getElementById('rightPanelTitle').textContent = 'Variant';
+  } else {
+    startBatchGeneration();
+  }
+}
+
+// ── Batch generation ──────────────────────────────────────────────────────────
+function startBatchGeneration() {
+  batchPhase    = 'generating';
+  batchProgress = { done: 0, total: BASE_IMAGES.length, errors: {} };
+
+  document.getElementById('leftPanelTitle').textContent = varSubtask.replace(/_/g,' ');
+  document.getElementById('leftPanelMeta').textContent  = 'Batch Generation';
+  document.getElementById('leftPanel').innerHTML        = renderBatchProgressPanel();
+  document.getElementById('rightPanel').innerHTML       = emptyPanel('gen', 'Waiting for first image…');
+  document.getElementById('rightPanelTitle').textContent = 'Preview';
+  document.getElementById('genMeta').textContent        = '';
+
+  renderVariantSlots();
+  renderControls();
+  updateProgress();
+  setStatus('busy', 'Starting batch generation…');
+
+  batchEventSource = new EventSource(`/api/batch-generate-subtask?subtask=${encodeURIComponent(varSubtask)}`);
+
+  batchEventSource.onmessage = function(evt) {
+    const msg = JSON.parse(evt.data);
+
+    if (msg.type === 'start') {
+      batchProgress.total = msg.total;
+
+    } else if (msg.type === 'progress') {
+      batchProgress.done++;
+      if (msg.error) {
+        batchProgress.errors[msg.image_id] = msg.error;
+      } else {
+        VARIANT_DONE.add(`${msg.image_id}:${varSubtask}`);
+        if (msg.image && !msg.skipped) {
+          document.getElementById('rightPanel').innerHTML = imgTag(msg.image, msg.mime || 'image/png');
+        }
+      }
+      document.getElementById('leftPanel').innerHTML = renderBatchProgressPanel();
+      setStatus('busy', `Generating ${batchProgress.done} / ${batchProgress.total}…`);
+      renderVariantSlots();
+      updateProgress();
+
+    } else if (msg.type === 'fatal') {
+      batchEventSource.close(); batchEventSource = null;
+      showErr(msg.error);
+      setStatus('err', `Error: ${msg.error}`);
+      batchPhase = 'idle';
+      renderControls();
+
+    } else if (msg.type === 'complete') {
+      batchEventSource.close(); batchEventSource = null;
+      onBatchComplete();
+    }
+  };
+
+  batchEventSource.onerror = function() {
+    if (batchEventSource) { batchEventSource.close(); batchEventSource = null; }
+    setStatus('err', 'Batch stream interrupted.');
+    onBatchComplete();
+  };
+}
+
+function renderBatchProgressPanel() {
+  const { done, total } = batchProgress;
+  const pct      = total > 0 ? Math.round(done / total * 100) : 0;
+  const errCount = Object.keys(batchProgress.errors).length;
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;width:100%;height:100%">
+    <div style="font-size:36px;font-weight:700;color:var(--accent)">${done}<span style="font-size:18px;color:var(--text-dim)"> / ${total}</span></div>
+    <div style="font-size:13px;color:var(--text-dim)">${varSubtask.replace(/_/g,' ')} — generating…</div>
+    <div style="width:80%;max-width:300px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width 0.3s"></div>
+    </div>
+    ${errCount > 0 ? `<div style="font-size:12px;color:var(--red)">${errCount} error${errCount>1?'s':''}</div>` : ''}
+  </div>`;
+}
+
+function onBatchComplete() {
+  batchPhase = 'review';
+  BASE_IMAGES.forEach(img => {
+    if (!reviewStates[img.id]) {
+      reviewStates[img.id] = batchProgress.errors[img.id] ? 'error' : 'ok';
+    }
+  });
+
+  const errCount = Object.keys(batchProgress.errors).length;
+  document.getElementById('leftPanelTitle').textContent  = 'Base Image';
+  document.getElementById('leftPanelMeta').textContent   = '';
+  document.getElementById('leftPanel').innerHTML         = emptyPanel('select', 'Click an image to review');
+  document.getElementById('rightPanelTitle').textContent = 'Variant';
+  document.getElementById('rightPanel').innerHTML        = emptyPanel('gen', 'Click an image to review');
+  document.getElementById('genMeta').textContent         = '';
+
+  renderVariantSlots();
+  renderControls();
+  updateProgress();
+  setStatus(errCount > 0 ? 'err' : 'ok',
+    errCount > 0
+      ? `Done with ${errCount} error${errCount>1?'s':''}. Click images to review.`
+      : 'Batch complete. Click an image to review.');
+}
+
+// ── Variant review ─────────────────────────────────────────────────────────────
+function selectVariantBase(id) {
+  if (batchPhase !== 'review') return;
+  varBaseId    = id;
+  pendingRegen = null;
+  regenBusy    = false;
+  showErr('');
+  document.getElementById('genMeta').textContent = '';
+
+  loadSourcePanel(id);
+  loadVariantPanel(id);
+  renderVariantSlots();
+  renderControls();
+
+  const state = reviewStates[id] || 'ok';
+  setStatus(state === 'flagged' ? '' : 'ok',
+    state === 'flagged' ? 'Flagged — add feedback and regenerate.' : 'Looks good? Or flag it for redo.');
+}
+
+function loadSourcePanel(baseId) {
+  const img          = BASE_IMAGES.find(i => i.id === baseId);
+  const cleanSubtask = CLEAN_FOR_DIRTY[varSubtask];
+  document.getElementById('leftPanel').innerHTML = `<div class="empty"><div class="spinner"></div></div>`;
+
+  if (cleanSubtask) {
+    document.getElementById('leftPanelTitle').textContent = img?.filename || baseId;
+    document.getElementById('leftPanelMeta').textContent  =
+      (img?.room_type?.replace(/_/g,' ') || '') + '  ·  source: ' + cleanSubtask.replace(/_/g,' ');
+    fetch(`/api/clean-image/${baseId}?subtask=${cleanSubtask}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) throw new Error(d.error);
+        document.getElementById('leftPanel').innerHTML = imgTag(d.data, d.mime);
+      })
+      .catch(e => {
+        document.getElementById('leftPanel').innerHTML = emptyPanel('image', e.message);
+      });
+  } else {
+    document.getElementById('leftPanelTitle').textContent = img?.filename || baseId;
+    document.getElementById('leftPanelMeta').textContent  = img?.room_type?.replace(/_/g,' ') || '';
+    fetch(`/api/base-image/${baseId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) throw new Error(d.error);
+        document.getElementById('leftPanel').innerHTML = imgTag(d.data, d.mime);
+      })
+      .catch(e => {
+        document.getElementById('leftPanel').innerHTML = emptyPanel('image', e.message);
+      });
+  }
+}
+
+function loadVariantPanel(id) {
+  document.getElementById('rightPanel').innerHTML = `<div class="empty"><div class="spinner"></div></div>`;
+  fetch(`/api/variant-image/${id}?subtask=${encodeURIComponent(varSubtask)}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) throw new Error(d.error);
+      document.getElementById('rightPanel').innerHTML = imgTag(d.data, d.mime);
+    })
+    .catch(e => {
+      document.getElementById('rightPanel').innerHTML = emptyPanel('gen', e.message);
+    });
+}
+
+function flagVariant() {
+  if (!varBaseId) return;
+  reviewStates[varBaseId] = 'flagged';
+  if (!imageFeedbacks[varBaseId]) imageFeedbacks[varBaseId] = '';
+  renderVariantSlots();
+  renderControls();
+  updateProgress();
+  setStatus('', 'Flagged. Describe the issue and regenerate.');
+}
+
+function unflagVariant() {
+  if (!varBaseId) return;
+  reviewStates[varBaseId] = 'ok';
+  renderVariantSlots();
+  renderControls();
+  updateProgress();
+  setStatus('ok', 'Un-flagged.');
+}
+
+async function regenerateVariant() {
+  if (!varBaseId || regenBusy) return;
+  const feedback = document.getElementById('feedback')?.value?.trim() || '';
+  imageFeedbacks[varBaseId] = feedback;
+  pendingRegen = null;
+  regenBusy    = true;
+  showErr('');
+
+  document.getElementById('rightPanel').innerHTML =
+    `<div class="empty"><div class="spinner"></div><span style="color:var(--text-dim);margin-top:8px">Regenerating…</span></div>`;
+  setStatus('busy', 'Regenerating with feedback…');
+  renderControls();
+
+  try {
+    const res  = await fetch('/api/generate-variant', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_id: varBaseId, subtask: varSubtask, feedback }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    pendingRegen = { b64: data.image, mime: data.mime };
+    document.getElementById('rightPanel').innerHTML    = imgTag(data.image, data.mime);
+    document.getElementById('genMeta').textContent     = tokenMeta(data.input_tokens, data.out_tokens);
+    setStatus('ok', 'Regenerated. Accept to save or try again.');
+  } catch(e) {
+    showErr(e.message);
+    setStatus('err', 'Regeneration failed.');
+  } finally {
+    regenBusy = false;
+    renderControls();
+  }
+}
+
+async function acceptRegen() {
+  if (!pendingRegen || !varBaseId) return;
+  try {
+    const res  = await fetch('/api/accept-variant', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_id: varBaseId, subtask: varSubtask, image: pendingRegen.b64 }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    reviewStates[varBaseId]   = 'ok';
+    imageFeedbacks[varBaseId] = '';
+    pendingRegen              = null;
+    VARIANT_DONE.add(`${varBaseId}:${varSubtask}`);
+
+    renderVariantSlots();
+    renderControls();
+    updateProgress();
+    setStatus('ok', `Saved ✓`);
+    checkAllReviewDone();
+  } catch(e) {
+    showErr(e.message);
+    setStatus('err', e.message);
+  }
+}
+
+function cancelRegen() {
+  pendingRegen = null;
+  loadVariantPanel(varBaseId);
+  renderControls();
+  setStatus('', 'Cancelled.');
+}
+
+function checkAllReviewDone() {
+  const flagged = Object.values(reviewStates).filter(s => s === 'flagged').length;
+  const errors  = Object.values(reviewStates).filter(s => s === 'error').length;
+  if (flagged === 0 && errors === 0) {
+    setStatus('ok', `🎉 All ${varSubtask.replace(/_/g,' ')} variants look good!`);
+  }
+}
+
+// ── Reset panels ──────────────────────────────────────────────────────────────
+function resetPanels() {
+  document.getElementById('leftPanel').innerHTML   = emptyPanel('select', 'Select a slot from the sidebar');
+  document.getElementById('rightPanel').innerHTML  = emptyPanel('gen', mode === 'base' ? 'Generate to see result' : 'Click an image to review');
+  document.getElementById('leftPanelTitle').textContent  = mode === 'base' ? 'Prompt' : 'Base Image';
+  document.getElementById('rightPanelTitle').textContent = mode === 'base' ? 'Generated' : 'Variant';
+  document.getElementById('leftPanelMeta').textContent   = '';
+  document.getElementById('genMeta').textContent         = '';
+  setStatus('', 'Select a slot to begin');
+}
+
+// ── Base mode: selection, generate, accept, skip ──────────────────────────────
+function selectBaseSlot(i) {
+  baseSlotIdx   = i;
+  basePromptVal = BASE_SLOTS[i].prompt;
+  generated     = null;
+  showErr('');
+  document.getElementById('genMeta').textContent  = '';
+  document.getElementById('rightPanel').innerHTML = emptyPanel('gen', 'Click Generate to start');
+
+  document.getElementById('leftPanelTitle').textContent = BASE_SLOTS[i].filename;
+  document.getElementById('leftPanelMeta').textContent  = BASE_SLOTS[i].room_type.replace(/_/g,' ');
+  document.getElementById('leftPanel').innerHTML =
+    `<textarea class="prompt-box" id="promptBox" spellcheck="false">${basePromptVal}</textarea>`;
+  document.getElementById('promptBox').addEventListener('input', e => { basePromptVal = e.target.value; });
+
+  renderControls();
+  document.getElementById('btnGen').disabled    = false;
+  document.getElementById('btnAccept').disabled = true;
+  document.getElementById('btnSkip').disabled   = false;
+  document.getElementById('feedback').value     = '';
+
+  renderSlots();
+  generate();
+}
+
+async function generate() {
+  if (busy || baseSlotIdx === null) return;
+  showErr('');
+  const feedback = document.getElementById('feedback').value.trim();
+
+  busy = true;
+  document.getElementById('btnGen').disabled    = true;
+  document.getElementById('btnAccept').disabled = true;
+  document.getElementById('rightPanel').innerHTML =
+    `<div class="empty"><div class="spinner"></div><span style="color:var(--text-dim);margin-top:8px">Calling Gemini API…</span></div>`;
+  setStatus('busy', feedback ? 'Regenerating with feedback…' : 'Generating…');
+
+  try {
+    const res  = await fetch('/api/generate-base', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: basePromptVal, feedback }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    generated = { b64: data.image, mime: data.mime };
+    document.getElementById('rightPanel').innerHTML = imgTag(data.image, data.mime);
+    document.getElementById('genMeta').textContent  = tokenMeta(data.input_tokens, data.out_tokens);
+    document.getElementById('btnAccept').disabled   = false;
+    document.getElementById('feedback').value       = '';
+    setStatus('ok', 'Generated ✓');
+  } catch(e) {
+    showErr(e.message);
+    setStatus('err', 'Failed');
+  } finally {
+    busy = false;
+    document.getElementById('btnGen').disabled = false;
+  }
+}
+
+async function accept() {
+  if (!generated) return;
+  const slot = BASE_SLOTS[baseSlotIdx];
+  try {
+    const res  = await fetch('/api/accept-base', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slot_id: slot.id, image: generated.b64, mime: generated.mime }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    accepted.add(`base:${baseSlotIdx}`);
+    updateProgress();
+    setStatus('ok', `Saved → ${data.saved}`);
+    advanceToNext();
+  } catch(e) {
+    showErr(e.message);
+    setStatus('err', e.message);
+  }
+}
+
+function skip() {
+  setStatus('', 'Skipped');
+  advanceToNext();
+}
+
+function advanceToNext() {
+  generated = null;
+  document.getElementById('feedback').value = '';
+  const next = BASE_SLOTS.findIndex((s, i) => i > baseSlotIdx && !accepted.has(`base:${i}`) && !s.exists);
+  const fallback = BASE_SLOTS.findIndex((s, i) => !accepted.has(`base:${i}`) && !s.exists);
+  const idx = next !== -1 ? next : fallback;
+  if (idx !== -1) {
+    selectBaseSlot(idx);
+  } else {
+    baseSlotIdx = null;
+    resetPanels();
+    renderControls();
+    setStatus('ok', '🎉 All base image slots done!');
+  }
+  renderSlots();
+}
+
+// ── Keyboard shortcuts (base mode only) ──────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (mode !== 'base') return;
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'Enter' && !busy)                    generate();
+  if ((e.key === 'a' || e.key === 'A') && generated)  accept();
+  if (e.key === 's' || e.key === 'S')                 skip();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+switchMode('base');
+</script>
+</body>
+</html>
