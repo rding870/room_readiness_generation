@@ -25,7 +25,7 @@ app = Flask(__name__)
 # Config — mirrors main.py and generate_base_images.py
 # ---------------------------------------------------------------------------
 
-MODEL = "gemini-3.1-flash-image-preview"
+MODEL = "gemini-2.5-flash-image"
 
 BASE_DIR    = Path(__file__).parent
 BASE_IMAGES = BASE_DIR / "base_images"

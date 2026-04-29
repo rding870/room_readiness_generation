@@ -2,7 +2,7 @@
 """
 Base Image Generator
 
-Generates 10 meeting-room and 10 open-space base images using the Gemini API
+Generates 25 meeting-room and 25 open-space base images using the Gemini API
 and saves them into:
   base_images/meeting_room/
   base_images/open_space/
@@ -36,7 +36,6 @@ OUT_DIRS = {
     "open_space":   BASE_DIR / "base_images" / "open_space",
 }
 
-IMAGES_PER_TYPE = 25
 
 # ---------------------------------------------------------------------------
 # Prompts — varied so each image looks distinct
